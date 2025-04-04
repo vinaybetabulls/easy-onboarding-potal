@@ -12,6 +12,7 @@ import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Image from '@tiptap/extension-image';
 import Dropzone from 'react-dropzone';
+import { useState } from 'react';
 
 const formSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -36,6 +37,7 @@ export default function RegistrationCard() {
     resolver: zodResolver(formSchema),
     defaultValues: { about: '' },
   });
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
 
   const editor = useEditor({
     extensions: [StarterKit, Image],
@@ -52,14 +54,17 @@ export default function RegistrationCard() {
     const reader = new FileReader();
     reader.onload = () => {
       const base64 = reader.result as string;
+
       if (file.type.startsWith('image/')) {
         editor?.chain().focus().setImage({ src: base64 }).run();
+        setUploadedFiles((prev) => [...prev, file]);
       } else if (file.type === 'application/pdf') {
         const linkHTML = `
           <p class='text-sm border border-blue-100 rounded p-2 bg-blue-50 text-blue-700'>
-            📄 <a href="${base64}" target="_blank" rel="noopener noreferrer">${file.name}</a>
+            📄 ${file.name}
           </p><p></p>`;
         editor?.chain().focus().insertContent(linkHTML).run();
+        setUploadedFiles((prev) => [...prev, file]); // store real file
       }
     };
     reader.readAsDataURL(file);
@@ -69,8 +74,36 @@ export default function RegistrationCard() {
     acceptedFiles.forEach((file) => handleFileInsert(file));
   };
 
-  const onSubmit = (data: FormData) => {
-    console.log({ ...data });
+  const onSubmit = async (data: FormData) => {
+    try {
+      const formData = new FormData();
+
+      formData.append('firstName', data.firstName);
+      formData.append('lastName', data.lastName);
+      formData.append('email', data.email);
+      formData.append('phone', data.phone);
+      formData.append('nationalId', data.nationalId);
+      formData.append('about', data.about);
+
+      // 📦 Append actual tracked files
+      uploadedFiles.forEach((file) => {
+        formData.append('files', file);
+      });
+
+      const response = await fetch('http://localhost:4000/api/register', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Failed to submit form');
+
+      const result = await response.json();
+      alert('Form submitted successfully!');
+      console.log('Response from service A:', result);
+    } catch (error) {
+      console.error('Submit error:', error);
+      alert('Submission failed. Check console.');
+    }
   };
 
   return (
