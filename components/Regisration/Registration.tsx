@@ -90,7 +90,7 @@ export default function RegistrationCard() {
         formData.append('files', file);
       });
 
-      const response = await fetch('http://localhost:4000/api/register', {
+      const response = await fetch('http://localhost:4000/api/onboard', {
         method: 'POST',
         body: formData,
       });
